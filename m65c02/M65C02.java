@@ -99,8 +99,13 @@ public class M65C02
     for (int i = 0; i < 10; i++)
     {
       clk++;
+      // disassemble the instruction
+      byte byte0 = decoder.read(pc);
+      byte byte1 = decoder.read(pc+1);
+      byte byte2 = decoder.read(pc+2);
+      String str = Disassembler.disassemble(pc, byte0, byte1, byte2);
       byte opcode = decoder.read(pc++);
-      System.out.println("opcode = "+String.format("%02X",opcode));
+      //System.out.println("opcode = "+String.format("%02X",opcode));
       decode(opcode);
       printCPUregs();
     }
@@ -1022,29 +1027,4 @@ public class M65C02
     if ((sr & C_FLAG) == C_FLAG) System.out.print("C"); else System.out.print("-");
     System.out.println("");
   }
-  //---------------------------------------------------------------------------
-  // OPCODE text string table
-  String opcode_text[] =
-      {
-          "BRK", "ORA", "cop", "ora", "Tsb", "ORA", "ASL", "ora", "PHP", "ORA", 
-      };
-  /* 
-    x0      x1          x2      x3          x4      x5      x6      x7        x8   x9      xA    xB   xC        xD      xE      xF
-0x  BRK b   ORA (d,X)   cop b   ora d,S     Tsb d   ORA d   ASL d   ora [d]   PHP  ORA #   ASL A phd  Tsb a     ORA a   ASL a   ora al
-1x  BPL r   ORA (d),Y   Ora (d) ora (d,S),Y Trb d   ORA d,X ASL d,X ora [d],Y CLC  ORA a,Y Inc A tcs  Trb a     ORA a,X ASL a,X ora al,X
-2x  JSR a   AND (d,X)   jsl al  and d,S     BIT d   AND d   ROL d   and [d]   PLP  AND #   ROL A pld  BIT a     AND a   ROL a   and al
-3x  BMI r   AND (d),Y   And (d) and (d,S),Y Bit d,X AND d,X ROL d,X and [d],Y SEC  AND a,Y Dec A tsc  Bit a,X   AND a,X ROL a,X and al,X
-4x  RTI     EOR (d,X)   wdm     eor d,S     mvp s,d EOR d   LSR d   eor [d]   PHA  EOR #   LSR A phk  JMP a     EOR a   LSR a   eor al
-5x  BVC r   EOR (d),Y   Eor (d) eor (d,S),Y mvn s,d EOR d,X LSR d,X eor [d],Y CLI  EOR a,Y Phy   tcd  jmp al    EOR a,X LSR a,X eor al,X
-6x  RTS     ADC (d,X)   per rl  adc d,S     Stz d   ADC d   ROR d   adc [d]   PLA  ADC #   ROR A rtl  JMP (a)   ADC a   ROR a   adc al
-7x  BVS r   ADC (d),Y   Adc (d) adc (d,S),Y Stz d,X ADC d,X ROR d,X adc [d],Y SEI  ADC a,Y Ply   tdc  Jmp (a,X) ADC a,X ROR a,X adc al,X
-8x  Bra r   STA (d,X)   brl rl  sta d,S     STY d   STA d   STX d   sta [d]   DEY  Bit #   TXA   phb  STY a     STA a   STX a   sta al
-9x  BCC r   STA (d),Y   Sta (d) sta (d,S),Y STY d,X STA d,X STX d,Y sta [d],Y TYA  STA a,Y TXS   txy  Stz a     STA a,X Stz a,X sta al,X
-Ax  LDY #   LDA (d,X)   LDX #   lda d,S     LDY d   LDA d   LDX d   lda [d]   TAY  LDA #   TAX   plb  LDY a     LDA a   LDX a   lda al
-Bx  BCS r   LDA (d),Y   Lda (d) lda (d,S),Y LDY d,X LDA d,X LDX d,Y lda [d],Y CLV  LDA a,Y TSX   tyx  LDY a,X   LDA a,X LDX a,Y lda al,X
-Cx  CPY #   CMP (d,X)   rep #   cmp d,S     CPY d   CMP d   DEC d   cmp [d]   INY  CMP #   DEX   wai  CPY a     CMP a   DEC a   cmp al
-Dx  BNE r   CMP (d),Y   Cmp (d) cmp (d,S),Y pei d   CMP d,X DEC d,X cmp [d],Y CLD  CMP a,Y Phx   stp  jml (a)   CMP a,X DEC a,X cmp al,X
-Ex  CPX #   SBC (d,X)   sep #   sbc d,S     CPX d   SBC d   INC d   sbc [d]   INX  SBC #   NOP   xba  CPX a     SBC a   INC a   sbc al
-Fx  BEQ r   SBC (d),Y   Sbc (d) sbc (d,S),Y pea a   SBC d,X INC d,X sbc [d],Y SED  SBC a,Y Plx   xce  jsr (a,X) SBC a,X INC a,X sbc al,X
-   */
 }
