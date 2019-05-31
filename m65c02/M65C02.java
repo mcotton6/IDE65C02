@@ -96,7 +96,7 @@ public class M65C02
   // execute instructions
   private void execute()
   {
-    for (int i = 0; i < 10; i++)
+    for (int i = 0; i < 1024; i++)
     {
       clk++;
       // disassemble the instruction
@@ -139,7 +139,7 @@ public class M65C02
   // checks for the single byte instructions
   private int checkSingleByteInstructions(byte opbyte)
   {
-    System.out.println("Single byte instruction check. opcode = "+String.format("%02X", opbyte));
+    //System.out.println("Single byte instruction check. opcode = "+String.format("%02X", opbyte));
     /*
     The remaining instructions are probably best considered simply by listing them.
     Here are the interrupt and subroutine instructions:
@@ -333,6 +333,8 @@ public class M65C02
   // Conditional branch instructions
   private void branchInstructions(byte opcode)
   {
+    boolean branch_taken = false;
+    System.out.println("branch check! sr = "+String.format("%02X", sr));
     /* aaabbbcc - aaa = xxy; bbb = 100; cc = 00
     The flag indicated by xx is compared with y, and the branch is taken if they are equal.
     xx  flag
@@ -344,27 +346,28 @@ public class M65C02
     BPL BMI BVC BVS BCC BCS BNE BEQ
     10  30  50  70  90  B0  D0  F0
      */
-    address_str = new String(""+String.format("%02X", decoder.read(pc)));
-    if (opcode == 0x10 && (sr & N_FLAG) == 0) takeBranch();           // BPL - branch of plus
-    else if (opcode == 0x30 && (sr & N_FLAG) == N_FLAG) takeBranch(); // BMI - branch if minus
-    else if (opcode == 0x50 && (sr & V_FLAG) == 0) takeBranch();      // BVC - branch if no overflow
-    else if (opcode == 0x70 && (sr & V_FLAG) == V_FLAG) takeBranch(); // BVS - branch if overflow
-    else if (opcode == 0x90 && (sr & C_FLAG) == 0) takeBranch();      // BCC - branch if no carry
-    else if (opcode == 0xb0 && (sr & C_FLAG) == C_FLAG) takeBranch(); // BCS - branch if carry
-    else if (opcode == 0xd0 && (sr & Z_FLAG) == 0) takeBranch();      // BEQ - branch if not equal
-    else if (opcode == 0xf0 && (sr & Z_FLAG) == Z_FLAG) takeBranch(); // BNE - branch if equal
-    System.out.println("Error - invalid branch instruction");
-    System.exit(-1);
+    address_str = new String(" "+String.format("%02X", decoder.read(pc)));
+    if (opcode == (byte)0x10 && (sr & N_FLAG) == 0) branch_taken = takeBranch();           // BPL - branch of plus
+    else if (opcode == (byte)0x30 && (sr & N_FLAG) == N_FLAG) branch_taken = takeBranch(); // BMI - branch if minus
+    else if (opcode == (byte)0x50 && (sr & V_FLAG) == 0) branch_taken = takeBranch();      // BVC - branch if no overflow
+    else if (opcode == (byte)0x70 && (sr & V_FLAG) == V_FLAG) branch_taken = takeBranch(); // BVS - branch if overflow
+    else if (opcode == (byte)0x90 && (sr & C_FLAG) == 0) branch_taken = takeBranch();      // BCC - branch if no carry
+    else if (opcode == (byte)0xb0 && (sr & C_FLAG) == C_FLAG) branch_taken = takeBranch(); // BCS - branch if carry
+    else if (opcode == (byte)0xd0 && (sr & Z_FLAG) == 0) branch_taken = takeBranch();      // BNE - branch if not equal
+    else if (opcode == (byte)0xf0 && (sr & Z_FLAG) == Z_FLAG) branch_taken = takeBranch(); // BEQ - branch if equal
+    if (branch_taken == false)
+      pc++;
   }
   //---------------------------------------------------------------------------
   // takes a branch
-  private void takeBranch()
+  private boolean takeBranch()
   {
     int branch = decoder.read(pc++);
     //System.out.println("takeBranch - PC before = "+String.format("%04X", pc));
     pc += branch; // after reading the branch value the PC should be pointing to the next normal instruction
     //System.out.println("takeBranch - PC after = "+String.format("%04X", pc));
     // the PC is then added to the value read, which may be negative and result in a subtraction
+    return true; // branch was taken
   }
   //---------------------------------------------------------------------------
   // decode address mode and read value from memory
@@ -385,6 +388,7 @@ public class M65C02
     byte value = 0;
     if (bbb == 0) // (zpg,X)
     {
+      System.out.println("(ZPAGE,X)!");
       int zpg = decoder.read(pc++);
       zpg = (zpg + x) & 0xff;
       int addr = (int)decoder.read(zpg) + (int)((int)decoder.read(zpg+1)<<8);
@@ -393,15 +397,18 @@ public class M65C02
     else if (bbb == 1) // zero page
     {
       int zpg = decoder.read(pc++);
+      System.out.println("ZPAGE! ("+String.format("%02X", zpg)+")");
       value = decoder.read(zpg);
     }
     else if (bbb == 2) // immediate
     {
+      System.out.println("IMMEDIATE!");
       byte imm_value = decoder.read(pc++);
       value = imm_value;
     }
     else if (bbb == 3) // absolute address
     {
+      System.out.println("ABSOLUTE!");
       int addr = (int)decoder.read(pc++) + (int)((int)decoder.read(pc++)<<8);
       value = decoder.read(addr);
     }
@@ -427,6 +434,78 @@ public class M65C02
     else if (bbb == 7) // absolute,X
     {
       int addr = (int)decoder.read(pc++) + (int)((int)decoder.read(pc++)<<8);
+      addr = (addr + x) & 0xffff;
+      value = decoder.read(addr);
+    }
+    else
+      System.exit(-1);
+    return value;
+  }
+  //---------------------------------------------------------------------------
+  // decode address mode and read value from memory (for READ-MODIFY-WRITE instructions)
+  private byte readRmwFromBBB(int bbb)
+  {
+    /*
+    And the addressing mode (bbb) bits:
+      bbb addressing mode
+      000 (zero page,X)
+      001 zero page
+      010 #immediate
+      011 absolute
+      100 (zero page),Y
+      101 zero page,X
+      110 absolute,Y
+      111 absolute,X
+     */
+    byte value = 0;
+    if (bbb == 0) // (zpg,X)
+    {
+      System.out.println("(ZPAGE,X)!");
+      int zpg = decoder.read(pc);
+      zpg = (zpg + x) & 0xff;
+      int addr = (int)decoder.read(zpg) + (int)((int)decoder.read(zpg+1)<<8);
+      value = decoder.read(addr);
+    }
+    else if (bbb == 1) // zero page
+    {
+      int zpg = decoder.read(pc);
+      System.out.println("ZPAGE! ("+String.format("%02X", zpg)+")");
+      value = decoder.read(zpg);
+    }
+    else if (bbb == 2) // immediate
+    {
+      System.out.println("IMMEDIATE!");
+      byte imm_value = decoder.read(pc);
+      value = imm_value;
+    }
+    else if (bbb == 3) // absolute address
+    {
+      System.out.println("ABSOLUTE!");
+      int addr = (int)decoder.read(pc) + (int)((int)decoder.read(pc+1)<<8);
+      value = decoder.read(addr);
+    }
+    else if (bbb == 4) // (zpg),Y
+    {
+      int zpg = decoder.read(pc);
+      int addr = (int)decoder.read(zpg) + (int)((int)decoder.read(zpg+1)<<8);
+      addr = (addr + y) & 0xffff;
+      value = decoder.read(addr);
+    }
+    else if (bbb == 5) // zpg,X
+    {
+      int zpg = decoder.read(pc);
+      zpg = (zpg + x) & 0xff;
+      value = decoder.read(zpg);
+    }
+    else if (bbb == 6) // absolute,Y
+    {
+      int addr = (int)decoder.read(pc) + (int)((int)decoder.read(pc+1)<<8);
+      addr = (addr + y) & 0xffff;
+      value = decoder.read(addr);
+    }
+    else if (bbb == 7) // absolute,X
+    {
+      int addr = (int)decoder.read(pc) + (int)((int)decoder.read(pc+1)<<8);
       addr = (addr + x) & 0xffff;
       value = decoder.read(addr);
     }
@@ -669,20 +748,19 @@ public class M65C02
   // DEC instruction
   private void dec(int bbb)
   {
-    int temp = readFromBBB(bbb);
+    int temp = readRmwFromBBB(bbb);
     temp--;
     temp &= 0xff;
     if (temp == 0x00)  sr |= Z_FLAG;
     else sr &= ~Z_FLAG;
     if ((temp & 0x80) != 0) sr |= N_FLAG;
-    else sr &= ~N_FLAG;
     writeToBBB(bbb,(byte)temp);
   }
   //---------------------------------------------------------------------------
   // INC instruction
   private void inc(int bbb)
   {
-    int temp = readFromBBB(bbb);
+    int temp = readRmwFromBBB(bbb);
     temp++;
     temp &= 0xff;
     if (temp == 0x00)  sr |= Z_FLAG;
@@ -690,6 +768,7 @@ public class M65C02
     if ((temp & 0x80) != 0) sr |= N_FLAG;
     else sr &= ~N_FLAG;
     writeToBBB(bbb,(byte)temp);
+    System.out.println("INC - byte = "+String.format("%02X", (byte)temp));
   }
   //---------------------------------------------------------------------------
   // BIT instruction

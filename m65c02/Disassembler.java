@@ -8,6 +8,8 @@ public class Disassembler
     String str = new String("");
     str = str.concat(String.format("%04X", addr));
     str = str.concat(" ");
+    str = str.concat(String.format("%02X", byte0));
+    str = str.concat(" ");
     str = str.concat(getMnemonic(byte0));
     str = str.concat(" ");
     System.out.println(str);
