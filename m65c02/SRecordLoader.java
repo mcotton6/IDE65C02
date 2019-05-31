@@ -5,6 +5,7 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 
+//-----------------------------------------------------------------------------
 public class SRecordLoader
 {
   private AddressDecoder decoder;
@@ -81,10 +82,13 @@ public class SRecordLoader
     {
       // now that we know the checksum is good we can load the record into memory
       System.out.println("Loading "+byte_array.length+" bytes at address "+String.format("%04X", address));
+      decoder.unlock(address); // unlock it first
+      int byte_address = address;
       for (int i = 0; i < byte_array.length; i++)
       {
-        decoder.write(address++, byte_array[i]);
+        decoder.write(byte_address++, byte_array[i]);
       }
+      decoder.lock(address); // lock it once complete
     }
     return byte_array;
   }

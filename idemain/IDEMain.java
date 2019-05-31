@@ -23,7 +23,7 @@ public class IDEMain
     SRecordLoader loader = new SRecordLoader(decoder);
     loader.loadFile("C:\\cygwin64\\home\\mcotton\\65C02tools\\mytest\\new.s9");
     // issue reset signal and start running
-    //m65c02.rst();
+    m65c02.rst();
   }
   public static void main(String[] args)
   {
