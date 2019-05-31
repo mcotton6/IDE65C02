@@ -76,4 +76,32 @@ public class AddressDecoder
       }
     }
   }
+  //---------------------------------------------------------------------------
+  public void lock(int address)
+  {
+    // search through the stored addresses and their respective ranges to see
+    // if this passed address matches a valid address
+    for (int i = 0; i < num_addresses; i++)
+    {
+      if (address >= address_base[i] && address <= address_end[i])
+      {
+        device[i].lock(true); // lock the memory device
+        break;
+      }
+    }
+  }
+  //---------------------------------------------------------------------------
+  public void unlock(int address)
+  {
+    // search through the stored addresses and their respective ranges to see
+    // if this passed address matches a valid address
+    for (int i = 0; i < num_addresses; i++)
+    {
+      if (address >= address_base[i] && address <= address_end[i])
+      {
+        device[i].lock(false); // unlock the memory device
+        break;
+      }
+    }
+  }
 }

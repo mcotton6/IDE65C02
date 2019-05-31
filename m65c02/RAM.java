@@ -20,4 +20,9 @@ public class RAM implements MemDevice
   {
     return ram.length;
   }
+  @Override
+  public void lock(boolean lock_flag)
+  {
+    // The RAM is never locked cause its read/write
+  }
 }
