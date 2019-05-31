@@ -7,6 +7,7 @@ public class ROM implements MemDevice
   public ROM()
   {
     rom = new byte[ROM_SIZE];
+    /*
     // add some simple instructions for now
     int i = 0;
     rom[i++] = (byte) 0x78; // 8000 SEI
@@ -23,6 +24,7 @@ public class ROM implements MemDevice
     // reset vector 0x8000
     rom[0x7ffc] = (byte) 0x00;
     rom[0x7ffd] = (byte) 0x80;
+    */
   }
   public byte read(int address)
   {

@@ -7,6 +7,7 @@ public class AddressDecoder
   private int address_end[];
   private MemDevice device[];
   private int num_addresses = 0;
+  private boolean debug;
   static private AddressDecoder instance = null;
   //---------------------------------------------------------------------------
   private AddressDecoder()
@@ -15,6 +16,12 @@ public class AddressDecoder
     address_end   = new int[NUM_ADDRESSES];
     device        = new MemDevice[NUM_ADDRESSES];
     num_addresses = 0;
+    debug         = false;
+  }
+  //---------------------------------------------------------------------------
+  public void setDebug(boolean enable)
+  {
+    debug = enable;
   }
   //---------------------------------------------------------------------------
   public static AddressDecoder getInstance()
@@ -42,7 +49,8 @@ public class AddressDecoder
       if (address >= address_base[i] && address <= address_end[i])
       {
         int phys_addr = address - address_base[i];
-        System.out.println("Decoder: Address: "+String.format("%04X", address)+
+        if (debug)
+          System.out.println("Decoder: Address: "+String.format("%04X", address)+
             " PhysAddr: "+ String.format("%04X", phys_addr));
         data = device[i].read(phys_addr);
         break;
@@ -59,7 +67,11 @@ public class AddressDecoder
     {
       if (address >= address_base[i] && address <= address_end[i])
       {
-        device[i].write(address, data);
+        // convert to the physical address within this memory space
+        int phys_addr = address - address_base[i];
+        // writing to the address provided
+        //System.out.println("Writing data to address "+String.format("%04X", address));
+        device[i].write(phys_addr, data);
         break;
       }
     }
