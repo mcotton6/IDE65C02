@@ -359,7 +359,7 @@ public class M65C02
       pc++;
   }
   //---------------------------------------------------------------------------
-  // takes a branch
+  // takes a branch - returns true to show that a branch was taken
   private boolean takeBranch()
   {
     int branch = decoder.read(pc++);

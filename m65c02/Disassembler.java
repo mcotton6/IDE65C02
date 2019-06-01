@@ -2,9 +2,12 @@ package m65c02;
 
 public class Disassembler
 {
+  public Disassembler() {}
+  private static int instr_num_bytes;
   //---------------------------------------------------------------------------
   static String disassemble(int addr, byte byte0, byte byte1, byte byte2)
   {
+    instr_num_bytes = 1; // always at least a 1 byte instruction
     String str = new String("");
     str = str.concat(String.format("%04X", addr));
     str = str.concat(" ");
@@ -12,6 +15,7 @@ public class Disassembler
     str = str.concat(" ");
     str = str.concat(getMnemonic(byte0));
     str = str.concat(" ");
+    // now figure out the addressing mode
     System.out.println(str);
     return str;
   }
