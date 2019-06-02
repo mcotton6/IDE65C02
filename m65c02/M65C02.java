@@ -30,6 +30,8 @@ public class M65C02
     instruct_str = null;
     address_str = null;
   }
+  //---------------------------------------------------------------------------
+  // process a reset signal
   public void rst()
   {
     System.out.println("RST signal applied");
@@ -96,6 +98,7 @@ public class M65C02
   // execute instructions
   private void execute()
   {
+    Disassembler dis = new Disassembler();
     for (int i = 0; i < 1024; i++)
     {
       clk++;
@@ -103,7 +106,7 @@ public class M65C02
       byte byte0 = decoder.read(pc);
       byte byte1 = decoder.read(pc+1);
       byte byte2 = decoder.read(pc+2);
-      String str = Disassembler.disassemble(pc, byte0, byte1, byte2);
+      String str = dis.disassemble(pc, byte0, byte1, byte2);
       byte opcode = decoder.read(pc++);
       //System.out.println("opcode = "+String.format("%02X",opcode));
       decode(opcode);
@@ -388,7 +391,7 @@ public class M65C02
     byte value = 0;
     if (bbb == 0) // (zpg,X)
     {
-      System.out.println("(ZPAGE,X)!");
+      //System.out.println("(ZPAGE,X)!");
       int zpg = decoder.read(pc++);
       zpg = (zpg + x) & 0xff;
       int addr = (int)decoder.read(zpg) + (int)((int)decoder.read(zpg+1)<<8);
@@ -397,18 +400,18 @@ public class M65C02
     else if (bbb == 1) // zero page
     {
       int zpg = decoder.read(pc++);
-      System.out.println("ZPAGE! ("+String.format("%02X", zpg)+")");
+      //System.out.println("ZPAGE! ("+String.format("%02X", zpg)+")");
       value = decoder.read(zpg);
     }
     else if (bbb == 2) // immediate
     {
-      System.out.println("IMMEDIATE!");
+      //System.out.println("IMMEDIATE!");
       byte imm_value = decoder.read(pc++);
       value = imm_value;
     }
     else if (bbb == 3) // absolute address
     {
-      System.out.println("ABSOLUTE!");
+      //System.out.println("ABSOLUTE!");
       int addr = (int)decoder.read(pc++) + (int)((int)decoder.read(pc++)<<8);
       value = decoder.read(addr);
     }
@@ -460,7 +463,7 @@ public class M65C02
     byte value = 0;
     if (bbb == 0) // (zpg,X)
     {
-      System.out.println("(ZPAGE,X)!");
+      //System.out.println("(ZPAGE,X)!");
       int zpg = decoder.read(pc);
       zpg = (zpg + x) & 0xff;
       int addr = (int)decoder.read(zpg) + (int)((int)decoder.read(zpg+1)<<8);
@@ -469,18 +472,18 @@ public class M65C02
     else if (bbb == 1) // zero page
     {
       int zpg = decoder.read(pc);
-      System.out.println("ZPAGE! ("+String.format("%02X", zpg)+")");
+      //System.out.println("ZPAGE! ("+String.format("%02X", zpg)+")");
       value = decoder.read(zpg);
     }
     else if (bbb == 2) // immediate
     {
-      System.out.println("IMMEDIATE!");
+      //System.out.println("IMMEDIATE!");
       byte imm_value = decoder.read(pc);
       value = imm_value;
     }
     else if (bbb == 3) // absolute address
     {
-      System.out.println("ABSOLUTE!");
+      //System.out.println("ABSOLUTE!");
       int addr = (int)decoder.read(pc) + (int)((int)decoder.read(pc+1)<<8);
       value = decoder.read(addr);
     }
@@ -768,7 +771,7 @@ public class M65C02
     if ((temp & 0x80) != 0) sr |= N_FLAG;
     else sr &= ~N_FLAG;
     writeToBBB(bbb,(byte)temp);
-    System.out.println("INC - byte = "+String.format("%02X", (byte)temp));
+    //System.out.println("INC - byte = "+String.format("%02X", (byte)temp));
   }
   //---------------------------------------------------------------------------
   // BIT instruction

@@ -2,12 +2,19 @@ package m65c02;
 
 public class Disassembler
 {
-  public Disassembler() {}
-  private static int instr_num_bytes;
+  private int instr_num_bytes;
+  private int address;
   //---------------------------------------------------------------------------
-  static String disassemble(int addr, byte byte0, byte byte1, byte byte2)
+  public Disassembler()
+  {
+    instr_num_bytes = 0;
+    address = 0;
+  }
+  //---------------------------------------------------------------------------
+  public String disassemble(int addr, byte byte0, byte byte1, byte byte2)
   {
     instr_num_bytes = 1; // always at least a 1 byte instruction
+    address = addr;      // save the start address for the instruction
     String str = new String("");
     str = str.concat(String.format("%04X", addr));
     str = str.concat(" ");
@@ -16,11 +23,64 @@ public class Disassembler
     str = str.concat(getMnemonic(byte0));
     str = str.concat(" ");
     // now figure out the addressing mode
+    // aaabbbcc - aaa---cc determine the opcode and ---bbb-- determines the addressing mode
+    //    bbb addressing mode
+    //    000 (zero page,X)
+    //    001 zero page
+    //    010 #immediate
+    //    011 absolute
+    //    100 (zero page),Y
+    //    101 zero page,X
+    //    110 absolute,Y
+    //    111 absolute,X
+    int mode = (byte0 & 0x1c) >> 2;
+    switch (mode)
+    {
+    case 0:
+      str = str.concat("("+String.format("%02X",byte1)+",X)");
+      instr_num_bytes = 2;
+      break;
+    case 1:
+      str = str.concat(String.format("%02X",byte1));
+      instr_num_bytes = 2;
+      break;
+    case 2:
+      str = str.concat("#"+String.format("%02X",byte1));
+      instr_num_bytes = 2;
+      break;
+    case 3:
+      str = str.concat(String.format("%02X",byte2)+String.format("%02X",byte1));
+      instr_num_bytes = 3;
+      break;
+    case 4:
+      str = str.concat("("+String.format("%02X",byte1)+"),Y");
+      instr_num_bytes = 2;
+      break;
+    case 5:
+      str = str.concat(String.format("%02X",byte1)+",X");
+      instr_num_bytes = 2;
+      break;
+    case 6:
+      str = str.concat(String.format("%02X",byte2)+String.format("%02X",byte1)+",Y");
+      instr_num_bytes = 3;
+      break;
+    case 7:
+      str = str.concat(String.format("%02X",byte2)+String.format("%02X",byte1)+",X");
+      instr_num_bytes = 3;
+      break;
+    }
+    // increment the address by the number of bytes in the instruction
+    address += instr_num_bytes;
     System.out.println(str);
     return str;
   }
   //---------------------------------------------------------------------------
-  private static String getMnemonic(byte opcode)
+  public int getCurrentAddress()
+  {
+    return address;
+  }
+  //---------------------------------------------------------------------------
+  private String getMnemonic(byte opcode)
   {
     return mnemonics[(int)(opcode & 0xff)];
   }
