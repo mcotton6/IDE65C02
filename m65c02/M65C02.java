@@ -99,7 +99,7 @@ public class M65C02
   private void execute()
   {
     Disassembler dis = new Disassembler();
-    for (int i = 0; i < 1024; i++)
+    for (int i = 0; i < 20; i++)
     {
       clk++;
       // disassemble the instruction
@@ -181,6 +181,8 @@ public class M65C02
     else if (opcode == 0xca) { dex(); return 0; }
     else if (opcode == 0xea) { nop(); return 0; }
     else if (opcode == 0x80) { bra(); return 0; }
+    else if (opcode == 0x20) { jsr(); return 0; }
+    else if (opcode == 0x60) { rts(); return 0; }
     return -1; // not executed, keep decoding
   }
   //---------------------------------------------------------------------------
@@ -1051,8 +1053,30 @@ public class M65C02
     System.out.println("BRA - operand = "+String.format("%02X", operand));
     takeBranch();
   }
-
-
+  //---------------------------------------------------------------------------
+  // JSR instruction
+  private void jsr()
+  {
+    int addr = decoder.read(pc++);
+    addr += decoder.read(pc++) << 8;
+    addr &= 0xffff;
+    pushword(pc);
+    pc = addr;
+    System.out.println("  instruction = JSR "+String.format("%04X", addr)+
+        ", PC = "+String.format("%04X", pc)+
+        " SR = "+String.format("%02X", sr));
+  }
+  //---------------------------------------------------------------------------
+  // RTS instruction
+  private void rts()
+  {
+    pc = pullword();
+    pc &= 0xffff;
+    System.out.println("  instruction = RTS "+
+        ", PC = "+String.format("%04X", pc)+
+        " SR = "+String.format("%02X", sr));
+  }
+  //---------------------------------------------------------------------------
   @SuppressWarnings("unused")
   private void Test(byte opcode)
   {

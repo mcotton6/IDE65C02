@@ -34,6 +34,11 @@ public class Disassembler
     //    110 absolute,Y
     //    111 absolute,X
     int mode = (byte0 & 0x1c) >> 2;
+    if (byte0 == (byte)0x20) mode = 3; // jsr
+    else if (byte0 == (byte)0x78) mode = 8; // sei
+    else if (byte0 == (byte)0x60) mode = 8; // rts
+    else if (byte0 == (byte)0xd0) mode = 1; // bne
+    //System.out.println("byte0 = "+String.format("%02X",byte0)+" mode = "+mode);
     switch (mode)
     {
     case 0:
@@ -67,6 +72,8 @@ public class Disassembler
     case 7:
       str = str.concat(String.format("%02X",byte2)+String.format("%02X",byte1)+",X");
       instr_num_bytes = 3;
+      break;
+    case 8:
       break;
     }
     // increment the address by the number of bytes in the instruction
