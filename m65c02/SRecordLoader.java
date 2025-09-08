@@ -10,7 +10,7 @@ public class SRecordLoader
 {
   private AddressDecoder decoder;
   private int            checksum;
-
+  static final private boolean debug = false;
   //---------------------------------------------------------------------------
   public SRecordLoader(AddressDecoder d)
   {
@@ -28,13 +28,14 @@ public class SRecordLoader
       String str; 
       while ((str = br.readLine()) != null)
       {
-        System.out.println(str);
+        //System.out.println(str);
         parseRecord(str);
       }
     } catch (IOException e)
     {
       // TODO Auto-generated catch block
       e.printStackTrace();
+      return -1;
     } 
     return 0;
   }
@@ -53,27 +54,36 @@ public class SRecordLoader
     // account for the checksum byte at the end
     // this will be the number of bytes used to verify the checksum
     int num_bytes = b - 1;
-    //System.out.println("num_bytes in record = "+num_bytes);
+    if (debug) System.out.println("num_bytes in record = "+num_bytes);
     byte[] byte_array = new byte[num_bytes-2];
     int j = 0;
     // read the address word (16 bit address)
     // upper byte of address
-    int address = (int)readByte(chars[4+j],chars[5+j]) << 8;
+    int upper = (int)readByte(chars[4+j],chars[5+j]) << 8;
+    upper &= 0xff00;
+    if (debug) System.out.println("Upper byte of address = "+String.format("%04X", upper));
     j += 2;
     // lower 8 bits of address
-    address |= (int)readByte(chars[4+j],chars[5+j]) << 0;
+    int lower = (int)readByte(chars[4+j],chars[5+j]);
+    lower &= 0x00ff;
+    int address = upper | lower;
     address &= 0xffff;
     j += 2;
-    //System.out.println("Address in S-Record = "+String.format("%04X", address));
+    if (debug) System.out.println("Address in S-Record = "+String.format("%04X", address));
+    if (debug) System.out.print("bytes: ");
     for (int i = 0; i < num_bytes-2; i++, j += 2)
     {
       b = readByte(chars[4+j],chars[5+j]);
       byte_array[i] = b;
-      //System.out.println("byte = "+String.format("%02X",byte_array[i]));
+      if (debug) System.out.print(String.format("%02X ",byte_array[i]));
     }
+    if (debug) System.out.println();
     int record_checksum = readByteNoCheck(chars[4+j],chars[5+j]);
-    //System.out.println("Calc checksum = "+String.format("%2X",checksum)+
-    //    ", record checksum = "+String.format("%2X",record_checksum));
+    if (debug)
+      {
+      System.out.println("Calc checksum = "+String.format("%2X",checksum)+
+        ", record checksum = "+String.format("%2X",record_checksum));
+      }
     checksum += record_checksum + 1;
     checksum &= 0xff;
     if (checksum != 0)
@@ -81,7 +91,7 @@ public class SRecordLoader
     else
     {
       // now that we know the checksum is good we can load the record into memory
-      System.out.println("Loading "+byte_array.length+" bytes at address "+String.format("%04X", address));
+      //System.out.println("Loading "+byte_array.length+" bytes at address "+String.format("%04X", address));
       decoder.unlock(address); // unlock it first
       int byte_address = address;
       for (int i = 0; i < byte_array.length; i++)

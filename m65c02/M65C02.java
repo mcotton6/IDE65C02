@@ -5,11 +5,15 @@ public class M65C02
 {
   long clk;
   AddressDecoder decoder;
+  // registers A, X, Y
   private byte a;
   private byte x;
   private byte y;
+  // program counter
   private int pc;
+  // stack pointer
   private byte sp;
+  // status register
   private byte sr;
   private static final byte N_FLAG = (byte) 0x80; // negative flag
   private static final byte V_FLAG = (byte) 0x40; // overflow flag
@@ -82,6 +86,7 @@ public class M65C02
   {
     int temp = pull() << 8;
     temp += pull();
+    temp &= 0xffff;
     return temp;
   }
   //---------------------------------------------------------------------------
@@ -96,19 +101,69 @@ public class M65C02
   // execute instructions
   private void execute()
   {
-    for (int i = 0; i < 10; i++)
+    for (int i = 0; i < 2000; i++)
     {
       clk++;
+      int address = pc; // save address prior to execution
       byte opcode = decoder.read(pc++);
-      System.out.println("opcode = "+String.format("%02X",opcode));
+      System.out.print(String.format("%04X", address)+" "+String.format("%02X",opcode));
       decode(opcode);
       printCPUregs();
     }
   }
   //---------------------------------------------------------------------------
+  // prints the mnemonic for the instruction
+  /*
+   *  ‐0  ‐1  ‐2  ‐3  ‐4  ‐5  ‐6  ‐7  ‐8  ‐9  ‐A  ‐B  ‐C  ‐D  ‐E  ‐F
+0‐  BRK impl  ORA X,ind --- --- TSB zpg ORA zpg ASL zpg RMB0 zpg  PHP impl  ORA # ASL A --- TSB abs ORA abs ASL abs BBR0 rel
+1‐  BPL rel ORA ind,Y ORA (zpg) --- TRB zpg ORA zpg,X ASL zpg,X RMB1 zpg  CLC impl  ORA abs,Y INC A --- TRB abs ORA abs,X ASL abs,X BBR1 rel
+2‐  JSR abs AND X,ind --- --- BIT zpg AND zpg ROL zpg RMB2 zpg  PLP impl  AND # ROL A --- BIT abs AND abs ROL abs BBR2 rel
+3‐  BMI rel AND ind,Y AND (zpg) --- BIT zpg,X AND zpg,X ROL zpg,X RMB3 zpg  SEC impl  AND abs,Y DEC A --- BIT abs,X AND abs,X ROL abs,X BBR3 rel
+4‐  RTI impl  EOR X,ind --- --- --- EOR zpg LSR zpg RMB4 zpg  PHA impl  EOR # LSR A --- JMP abs EOR abs LSR abs BBR4 rel
+5‐  BVC rel EOR ind,Y EOR (zpg) --- --- EOR zpg,X LSR zpg,X RMB5 zpg  CLI impl  EOR abs,Y PHY impl  --- --- EOR abs,X LSR abs,X BBR5 rel
+6‐  RTS impl  ADC X,ind --- --- STZ zpg ADC zpg ROR zpg RMB6 zpg  PLA impl  ADC # ROR A --- JMP ind ADC abs ROR abs BBR6 rel
+7‐  BVS rel ADC ind,Y ADC (zpg) --- STZ zpg,X ADC zpg,X ROR zpg,X RMB7 zpg  SEI impl  ADC abs,Y PLY impl  --- JMP (abs,X) ADC abs,X ROR abs,X BBR7 rel
+8‐  BRA rel STA X,ind --- --- STY zpg STA zpg STX zpg SMB0 zpg  DEY impl  BIT # TXA impl  --- STY abs STA abs STX abs BBS0 rel
+9‐  BCC rel STA ind,Y STA (zpg) --- STY zpg,X STA zpg,X STX zpg,Y SMB1 zpg  TYA impl  STA abs,Y TXS impl  --- STZ abs STA abs,X STZ abs,X BBS1 rel
+A‐  LDY # LDA X,ind LDX # --- LDY zpg LDA zpg LDX zpg SMB2 zpg  TAY impl  LDA # TAX impl  --- LDY abs LDA abs LDX abs BBS2 rel
+B‐  BCS rel LDA ind,Y LDA (zpg) --- LDY zpg,X LDA zpg,X LDX zpg,Y SMB3 zpg  CLV impl  LDA abs,Y TSX impl  --- LDY abs,X LDA abs,X LDX abs,Y BBS3 rel
+C‐  CPY # CMP X,ind --- --- CPY zpg CMP zpg DEC zpg SMB4 zpg  INY impl  CMP # DEX impl  WAI impl  CPY abs CMP abs DEC abs BBS4 rel
+D‐  BNE rel CMP ind,Y CMP (zpg) --- --- CMP zpg,X DEC zpg,X SMB5 zpg  CLD impl  CMP abs,Y PHX impl  STP impl  --- CMP abs,X DEC abs,X BBS5 rel
+E‐  CPX # SBC X,ind --- --- CPX zpg SBC zpg INC zpg SMB6 zpg  INX impl  SBC # NOP impl  --- CPX abs SBC abs INC abs BBS6 rel
+F‐  BEQ rel SBC ind,Y SBC (zpg) --- --- SBC zpg,X INC zpg,X SMB7 zpg  SED impl  SBC abs,Y PLX impl  --- --- SBC abs,X INC abs,X BBS7 rel
+   */
+  private void printMnemonic(byte opcode)
+  {
+    int index = opcode & 0x000000ff;
+    String mnemonics[] =
+        {
+            //x0  x1    x2    x3    x4    x5    x6    x7     x8    x9    xa    xb    xc    xd    xe    xf
+            "BRK","ORA","",   "",   "TSB","ORA","ASL","RMB0","PHP","ORA","ASL","",   "TSB","ORA","ASL","BBR0", // 0x
+            "BPL","ORA","ORA","",   "TRB","ORA","ASL","RMB1","CLC","ORA","",   "",   "TRB","ORA","ASL","BBR1", // 1x
+            "JSR","AND","",   "",   "BIT","AND","ROL","RMB2","PLP","AND","ROL","",   "BIT","AND","ROL","BBR2", // 2x
+            "BMI","AND","AND","",   "BIT","AND","ROL","RMB3","SEC","AND","DEC","",   "BIT","AND","ROL","BBR3", // 3x
+            "RTI","EOR","",   "",   "",   "EOR","LSR","RMB4","PHA","EOR","LSR","",   "JMP","EOR","LSR","BBR4", // 4x
+            "BVC","EOR","",   "",   "",   "EOR","LSR","RMB5","CLI","EOR","PHY","",   "",   "EOR","LSR","BBR5", // 5x
+            "RTS","ADC","",   "",   "STZ","ADC","ROR","RMB6","PLA","ADC","ROR","",   "JMP","ADC","ROR","BBR6", // 6x
+            "BVS","ADC","ADC","",   "STZ","ADC","ROR","RMB7","SEI","ADC","PLY","",   "JMP","ADC","ROR","BBR7", // 7x
+            "BRA","STA","",   "",   "STY","STA","STX","SMB0","DEY","BIT","TXA","",   "STY","STA","STX","BBS0", // 8x
+            "BCC","STA","STA","",   "STY","STA","STX","SMB1","TYA","STA","TXS","",   "STZ","STA","STZ","BBS1", // 9x
+            "LDY","LDA","LDX","",   "LDY","LDA","LDX","SMB2","TAY","LDA","TAX","",   "LDY","LDA","LDX","BBS2", // ax
+            "BCS","LDA","LDA","",   "LDY","LDA","LDX","SMB3","CLV","LDA","TSX","",   "LDY","LDA","LDX","BBS3", // bx
+            "CPY","CMP","",   "",   "CPY","CMP","DEC","SMB4","INY","CMP","DEX","WAI","CPY","CMP","DEC","BBS4", // cx
+            "BNE","CMP","CMP","",   "",   "CMP","DEC","SMB5","CLD","CMP","PHX","STP","",   "CMP","DEC","BBS5", // dx
+            "CPX","SBC","",   "",   "CPX","SBC","INC","SMB6","INX","SBC","NOP","",   "CPX","SBC","INC","BBS6", // ex
+            "BEQ","SBC","SBC","",   "",   "SBC","INC","SMB7","SED","SBC","PLX","",   "",   "SBC","INC","BBS7"  // fx
+        };
+    System.out.println(" "+mnemonics[index]);
+  }
+  //---------------------------------------------------------------------------
   // instruction decode logic
   private void decode(byte opcode)
   {
+    // print the opcode mnemonic
+    printMnemonic(opcode);
+    // check to see if its a single byte instruction
     if (checkSingleByteInstructions(opcode) == 0) // returns '0' if was executed
       return;
     int cc = (int)opcode & 0x03;  // part of the instruction
@@ -134,7 +189,7 @@ public class M65C02
   // checks for the single byte instructions
   private int checkSingleByteInstructions(byte opbyte)
   {
-    System.out.println("Single byte instruction check. opcode = "+String.format("%02X", opbyte));
+    //System.out.println("Single byte instruction check. opcode = "+String.format("%02X", opbyte));
     /*
     The remaining instructions are probably best considered simply by listing them.
     Here are the interrupt and subroutine instructions:
@@ -172,7 +227,10 @@ public class M65C02
     else if (opcode == 0xba) { tsx(); return 0; }
     else if (opcode == 0xca) { dex(); return 0; }
     else if (opcode == 0xea) { nop(); return 0; }
+    else if (opcode == 0x40) { rti(); return 0; }
+    else if (opcode == 0x60) { rts(); return 0; }
     else if (opcode == 0x80) { bra(); return 0; }
+    else if (opcode == 0x20) { jsr(); return 0; }
     return -1; // not executed, keep decoding
   }
   //---------------------------------------------------------------------------
@@ -340,22 +398,27 @@ public class M65C02
     10  30  50  70  90  B0  D0  F0
      */
     address_str = new String(""+String.format("%02X", decoder.read(pc)));
-    if (opcode == 0x10 && (sr & N_FLAG) == 0) takeBranch();           // BPL - branch of plus
-    else if (opcode == 0x30 && (sr & N_FLAG) == N_FLAG) takeBranch(); // BMI - branch if minus
-    else if (opcode == 0x50 && (sr & V_FLAG) == 0) takeBranch();      // BVC - branch if no overflow
-    else if (opcode == 0x70 && (sr & V_FLAG) == V_FLAG) takeBranch(); // BVS - branch if overflow
-    else if (opcode == 0x90 && (sr & C_FLAG) == 0) takeBranch();      // BCC - branch if no carry
-    else if (opcode == 0xb0 && (sr & C_FLAG) == C_FLAG) takeBranch(); // BCS - branch if carry
-    else if (opcode == 0xd0 && (sr & Z_FLAG) == 0) takeBranch();      // BEQ - branch if not equal
-    else if (opcode == 0xf0 && (sr & Z_FLAG) == Z_FLAG) takeBranch(); // BNE - branch if equal
-    System.out.println("Error - invalid branch instruction");
-    System.exit(-1);
+    //System.out.print("opcode = "+String.format("%02X",opcode));
+    //System.out.println(" sr     = "+Integer.toBinaryString((int)sr));
+    boolean z_flag = false;
+    if ((sr & Z_FLAG) == Z_FLAG) z_flag = true;
+    //System.out.println("z_flag = "+z_flag);
+    if (opcode == (byte)0x10 && (sr & N_FLAG) == 0)           takeBranch(); // BPL - branch of plus
+    else if (opcode == (byte)0x30 && (sr & N_FLAG) == N_FLAG) takeBranch(); // BMI - branch if minus
+    else if (opcode == (byte)0x50 && (sr & V_FLAG) == 0)      takeBranch(); // BVC - branch if no overflow
+    else if (opcode == (byte)0x70 && (sr & V_FLAG) == V_FLAG) takeBranch(); // BVS - branch if overflow
+    else if (opcode == (byte)0x90 && (sr & C_FLAG) == 0)      takeBranch(); // BCC - branch if no carry
+    else if (opcode == (byte)0xb0 && (sr & C_FLAG) == C_FLAG) takeBranch(); // BCS - branch if carry
+    else if (opcode == (byte)0xd0 && (sr & Z_FLAG) == 0)      takeBranch(); // BNE - branch if not equal
+    else if (opcode == (byte)0xf0 && (sr & Z_FLAG) == Z_FLAG) takeBranch(); // BEQ - branch if equal
+    pc++;
+    //System.out.println("pc="+String.format("%04X",pc));
   }
   //---------------------------------------------------------------------------
   // takes a branch
   private void takeBranch()
   {
-    int branch = decoder.read(pc++);
+    int branch = decoder.read(pc);  // don't increment PC because we are adding/subtracting the branch value to the PC
     //System.out.println("takeBranch - PC before = "+String.format("%04X", pc));
     pc += branch; // after reading the branch value the PC should be pointing to the next normal instruction
     //System.out.println("takeBranch - PC after = "+String.format("%04X", pc));
@@ -776,6 +839,18 @@ public class M65C02
   // BRK instruction
   private void brk()
   {
+    System.out.println("Hit BRK instruction");
+    // dump some RAM
+    for (int i = 0; i < 256; i+=16)
+    {
+      System.out.print(String.format("%04X", i) + ": ");
+      for (int j = 0; j < 16; j++)
+        System.out.print(String.format("%02X", decoder.read(i+j))+" ");
+      System.out.println();
+    }
+    System.exit(-1);
+
+    
     push(sr |= B_FLAG); // set break condition flag
     sr |= I_FLAG;       // disable interrupts
     pushword(pc++);
@@ -808,6 +883,33 @@ public class M65C02
     else sr &= ~Z_FLAG;
     if ((a & 0x80) != 0) sr |= N_FLAG;
     else sr &= ~N_FLAG;
+  }
+  //---------------------------------------------------------------------------
+  // JSR instruction
+  private void jsr()
+  {
+    int addr = decoder.read(pc++) & 0x00ff;
+    //System.out.println("first byte read = "+String.format("%02X", addr));
+    addr += decoder.read(pc)<<8; // no increment of the PC here
+    addr &= 0xffff;
+    pushword(pc);
+    System.out.println("JSR "+String.format("%04X", addr));
+    pc = addr;
+  }
+
+  //---------------------------------------------------------------------------
+  // RTS instruction
+  private void rts()
+  {
+    pc = pullword();
+    pc++; // jsr pushed the PC of the last byte of the jsr, not the pc of the next instruction
+  }
+  //---------------------------------------------------------------------------
+  // RTI instruction
+  private void rti()
+  {
+    sr = pull();
+    pc = pullword(); // interrupt pushed the PC of the next instruction
   }
   //---------------------------------------------------------------------------
   // DEY instruction
@@ -849,6 +951,7 @@ public class M65C02
     x &= 0xff;
     if (x == 0x00)  sr |= Z_FLAG;
     else sr &= ~Z_FLAG;
+    //System.out.println("sr="+sr+" x="+x);
     if ((x & 0x80) != 0) sr |= N_FLAG;
     else sr &= ~N_FLAG;
   }
@@ -896,13 +999,13 @@ public class M65C02
   // CLD instruction
   private void cld()
   {
-    sr &= ~D_FLAG;
+    sr &= ~D_FLAG; // sets decimal mode flag
   }
   //---------------------------------------------------------------------------
   // SED instruction
   private void sed()
   {
-    sr |= D_FLAG;
+    sr |= D_FLAG; // clears decimal mode flag
   }
   //---------------------------------------------------------------------------
   // TXA instruction
